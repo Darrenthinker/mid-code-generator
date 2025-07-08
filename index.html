@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>制造商识别码MID生成器</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='grad1' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' style='stop-color:%236366f1;stop-opacity:1' /><stop offset='100%25' style='stop-color:%239333ea;stop-opacity:1' /></linearGradient></defs><rect width='100' height='100' fill='url(%23grad1)' rx='20'/><text x='50' y='35' font-family='Arial,sans-serif' font-size='24' font-weight='bold' text-anchor='middle' fill='white'>MID</text><text x='50' y='65' font-family='Arial,sans-serif' font-size='12' text-anchor='middle' fill='white'>生成器</text></svg>">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row justify-content-center">
+            <div class="col-12 col-xl-11">
+                <header class="text-center mb-4">
+                    <h1 class="display-5 mb-2">
+                        <i class="fas fa-industry me-2"></i>
+                        制造商识别码MID生成器
+                    </h1>
+                    <p class="lead mb-0">Manufacturer Identification Code Generator</p>
+                </header>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-12 col-xl-11">
+                <!-- Tab Navigation -->
+                <ul class="nav nav-tabs nav-fill mb-4" id="mainTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="generate-tab" data-bs-toggle="tab" data-bs-target="#generate" type="button" role="tab">
+                            <i class="fas fa-cogs me-2"></i>生成MID代码
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="validate-tab" data-bs-toggle="tab" data-bs-target="#validate" type="button" role="tab">
+                            <i class="fas fa-check-circle me-2"></i>验证MID代码
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="batch-tab" data-bs-toggle="tab" data-bs-target="#batch" type="button" role="tab">
+                            <i class="fas fa-list me-2"></i>批量处理
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab Content -->
+                <div class="tab-content" id="mainTabsContent">
+                    <!-- Generate Tab -->
+                    <div class="tab-pane fade show active" id="generate" role="tabpanel">
+                        <div class="row justify-content-center">
+                            <div class="col-12 col-xl-12">
+                                <div class="card mb-4 w-100">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">
+                                            <i class="fas fa-pencil-alt me-2"></i>输入信息
+                                        </h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <!-- Input Mode Selection -->
+                                        <div class="mb-4">
+                                            <label class="form-label fw-bold">输入模式</label>
+                                            <div class="btn-group w-100" role="group">
+                                                <input type="radio" class="btn-check" name="inputMode" id="smartParse" value="smart" checked>
+                                                <label class="btn btn-outline-primary" for="smartParse">
+                                                    <i class="fas fa-magic me-1"></i>智能识别
+                                                </label>
+                                                <input type="radio" class="btn-check" name="inputMode" id="manualInput" value="manual">
+                                                <label class="btn btn-outline-primary" for="manualInput">
+                                                    <i class="fas fa-edit me-1"></i>手动输入
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <!-- Smart Parse Mode -->
+                                        <div id="smartParseMode">
+                                            <div class="mb-4">
+                                                <label for="fullInfo" class="form-label fw-bold">完整制造商信息</label>
+                                                <textarea class="form-control" id="fullInfo" rows="8" placeholder="请提供完整的国家.制造商名称.地址行.城市信息
+信息只支持英文
+例如:
+Apple Inc.
+One Apple Park Way
+Cupertino, CA 95014
+United States"></textarea>
+                                                <div class="form-text">
+                                                    <i class="fas fa-info-circle me-1"></i>
+                                                    提供完整信息后，系统将自动解析识别。
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn btn-primary btn-lg w-100" id="parseBtn">
+                                                <i class="fas fa-cogs me-2"></i>生成MID码
+                                            </button>
+                                        </div>
+
+                                        <!-- Manual Input Mode -->
+                                        <div id="manualInputMode" style="display: none;">
+                                            <div class="mb-3">
+                                                <label for="countryInput" class="form-label fw-bold">国家代码</label>
+                                                <input type="text" class="form-control" id="countryInput" placeholder="输入ISO 2字母国家代码 例如: US CN DE GB">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="companyInput" class="form-label fw-bold">制造商名称</label>
+                                                <input type="text" class="form-control" id="companyInput" placeholder="输入制造商的完整法定名称 例如: Apple Inc.">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="addressInput" class="form-label fw-bold">地址行</label>
+                                                <input type="text" class="form-control" id="addressInput" placeholder="包含建筑物编号以准确生成MID 例如: One Apple Park Way Building 5">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="cityInput" class="form-label fw-bold">城市</label>
+                                                <input type="text" class="form-control" id="cityInput" placeholder="制造商所在的城市 例如: Cupertino">
+                                            </div>
+                                            <button type="button" class="btn btn-primary btn-lg w-100" id="generateBtn">
+                                                <i class="fas fa-cogs me-2"></i>生成MID代码
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card w-100">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">
+                                            <i class="fas fa-code me-2"></i>MID代码生成的规则
+                                        </h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <!-- Parse Results (只显示生成按钮，不显示解析详情) -->
+                                        <div id="parseResults" style="display: none;">
+                                            <div class="d-grid gap-2">
+                                                <button type="button" class="btn btn-primary btn-lg" id="confirmParseBtn">
+                                                    <i class="fas fa-cogs me-2"></i>生成MID码
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary" id="editParseBtn">
+                                                    <i class="fas fa-edit me-2"></i>编辑修改
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- MID Code Result 区域顺序优化：先大号MID码，后解析详情 -->
+                                        <div id="midResult" style="display: none;">
+                                            <!-- 1. 直接大号展示MID代码和复制按钮 -->
+                                            <div class="text-center mb-4">
+                                                <div class="mid-code-display p-4 rounded bg-white shadow-sm mb-3" style="font-size:2.5rem; letter-spacing:0.2em; border:2px solid #0d6efd; color:#0d6efd;">
+                                                    <span id="midCodeDisplay" class="fw-bold"></span>
+                                                </div>
+                                                <button type="button" class="btn btn-primary btn-lg px-4 mb-2" id="copyBtn">
+                                                    <i class="fas fa-copy me-2"></i>复制MID码
+                                                </button>
+                                            </div>
+                                            <!-- 2. 组成分析和解析详情（解析详情内容下移） -->
+                                            <div id="midBreakdown" class="mt-4"></div>
+                                            <!-- 3. 生成示例和输入示例 -->
+                                            <div class="alert alert-info mt-4" style="background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%); border: 1px solid #86cfda;">
+                                                <h6 class="fw-bold text-dark mb-2">
+                                                    <i class="fas fa-lightbulb me-2"></i>生成示例
+                                                </h6>
+                                                <div class="text-dark" id="generationExample">
+                                                    <div class="mb-2" id="inputExample"></div>
+                                                    <div class="fw-bold text-primary" id="resultExample">结果：<span id="midCodeResult"></span></div>
+                                                </div>
+                                            </div>
+                                            <!-- 4. 解析状态和权威说明 -->
+                                            <div class="mt-4">
+                                                <div class="validation-status" id="validationStatus"></div>
+                                            </div>
+
+                                        </div>
+
+                                        <!-- Help Text -->
+                                        <div id="helpText" class="text-muted">
+                                            <!-- FedEx官方规则说明 -->
+                                            <div class="alert alert-warning" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border: 1px solid #d4a661;">
+                                                <h6 class="mb-3 fw-bold text-dark">
+                                                    <i class="fas fa-file-alt me-2"></i>MID代码生成的规则 - FedEx官方指南
+                                                </h6>
+                                                <div class="mb-3 text-dark">
+                                                    <small>根据FedEx的官方文档：</small>
+                                                </div>
+                                                <blockquote class="mb-3 ps-3" style="border-left: 4px solid #d4a661;">
+                                                    <p class="mb-2 text-dark"><em>要生成制造商识别代码（MID代码），您需要确保您的制造供应商提供了完整的公司名称和邮政地址。</em></p>
+                                                    <p class="mb-0 text-dark"><em>一旦您拥有所有这些详细信息，您需要按照以下顺序组合MID代码：</em></p>
+                                                </blockquote>
+                                                <div class="row">
+                                                    <div class="col-md-6 mb-3">
+                                                        <div class="p-3 rounded d-flex flex-column justify-content-between" style="background: rgba(255,255,255,0.3); min-height: 140px;">
+                                                            <div>
+                                                                <h6 class="fw-bold text-dark mb-2"><span class="badge bg-danger me-2">1</span>国家代码</h6>
+                                                                <p class="small text-dark mb-1">确定该国的两个字母ISO代码。</p>
+                                                            </div>
+                                                            <p class="small text-dark mb-0">对于中国，代码为CN。</p>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6 mb-3">
+                                                        <div class="p-3 rounded d-flex flex-column justify-content-between" style="background: rgba(255,255,255,0.3); min-height: 140px;">
+                                                            <div>
+                                                                <h6 class="fw-bold text-dark mb-2"><span class="badge bg-info me-2">3</span>地址行</h6>
+                                                                <p class="small text-dark mb-1">包含街道名称和/或者编号。</p>
+                                                                <p class="small text-dark mb-1">最多4个字符。</p>
+                                                            </div>
+                                                            <p class="small text-dark mb-0">从地址行中取出最高的数字（最多四位）。</p>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6 mb-3">
+                                                        <div class="p-3 rounded d-flex flex-column" style="background: rgba(255,255,255,0.3); min-height: 175px;">
+                                                            <h6 class="fw-bold text-dark mb-2"><span class="badge bg-warning me-2">2</span>制造商名称</h6>
+                                                            <div class="flex-grow-1">
+                                                                <p class="small text-dark mb-1">最多6个字符。</p>
+                                                                <p class="small text-dark mb-1">对于单字制造商名称，取前三个字母。</p>
+                                                                <p class="small text-dark mb-1">对于有两个或以上单词的制造商名称，取前两个单词的前三个字母。</p>
+                                                                <p class="small text-dark mb-0">忽略以下不常用词："a"、"an"、"and"、"of"、"the"等连接词。</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6 mb-3">
+                                                        <div class="p-3 rounded d-flex flex-column" style="background: rgba(255,255,255,0.3); min-height: 175px;">
+                                                            <h6 class="fw-bold text-dark mb-2"><span class="badge bg-success me-2">4</span>城市</h6>
+                                                            <div class="flex-grow-1">
+                                                                <p class="small text-dark mb-1">最多3个字符。</p>
+                                                                <p class="small text-dark mb-1">取制造商所在城市名称的前三个字母。</p>
+                                                                <p class="small text-dark mb-0">例如，上海的正确代码为：SHA。</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="alert alert-light border mt-3">
+                                                    <h6 class="fw-bold text-dark mb-2">构建制造商代码的一般规则：</h6>
+                                                    <ul class="small text-dark mb-2">
+                                                        <li>忽略所有标点符号，如连字号、句号、省略号。</li>
+                                                        <li>忽略所有字母符号，例如Thomas S. Delvaux Company中的"S"。</li>
+                                                        <li>忽略类文章词"a"、"an"、"and"、"of"、"the"。</li>
+                                                        <li>如果制造商上述规则的公司名称和/或地址，请使用与公司的照原地址，而不是分公司，办事处或其他。</li>
+                                                    </ul>
+                                                </div>
+                                                <div class="row gx-2">
+                                                    <div class="col-md-4">
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-external-link-alt me-1"></i>
+                                                            来源：<a href="https://www.fedex.com/content/dam/fedex/apac-asia-pacific/downloads/fedex-generating-mid-code-guide-zh-cn.pdf" target="_blank" class="text-decoration-none">FedEx官方MID代码生成指南</a>
+                                                        </small>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-external-link-alt me-1"></i>
+                                                            来源：<a href="https://www.fedex.com/en-pl/customer-support/faq/customs/customs-codes/what-is-mid-code-manufacturer-identification-code.html" target="_blank" class="text-decoration-none">What is a MID code?</a>
+                                                        </small>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-external-link-alt me-1"></i>
+                                                            来源：<a href="https://www.cbp.gov/sites/default/files/documents/3550-055_3.pdf" target="_blank" class="text-decoration-none">1986年美国海关制定并强制实施MID规则</a>
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- MID代码的应用介绍 -->
+                                            <div class="alert alert-info mt-4" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 1px solid #64b5f6;">
+                                                <h6 class="mb-3 fw-bold text-dark">
+                                                    <i class="fas fa-rocket me-2"></i>MID代码的应用
+                                                </h6>
+                                                
+                                                <!-- 基础应用介绍 -->
+                                                <div class="mb-4">
+                                                    <div class="card border-0" style="background: rgba(255,255,255,0.8);">
+                                                        <div class="card-body">
+                                                            <h6 class="card-title text-primary">
+                                                                <i class="fas fa-question-circle me-2"></i>什么是制造商识别码（MID代码）？
+                                                            </h6>
+                                                            <p class="card-text">MID代码是货物进口时美国海关所必须提供的信息之一，它可以用作制造商、托运人或出口商各种信息地的替代信息，<br>
+                                                            且在某些货物的美国海关申报过程中是必不可少的。为了确保某些货物的利润关，商业意义上必须正确制定MID代码。</p>
+                                                            <p class="card-text">MID代码会出现在提交给美国海关与边境保护局（CBP）、美国食品药品监督管理局（FDA）、美国农业部（USDA）以及其他政府机构的文件上。</p>
+                                                            
+                                                            <!-- MID代码结构图 -->
+                                                            <div class="bg-light p-3 rounded border mt-3">
+                                                                <h6 class="text-center mb-3 text-dark">MID代码结构示例</h6>
+                                                                <div class="d-flex justify-content-center align-items-center flex-wrap">
+                                                                    <!-- 国家/地区代码 -->
+                                                                    <div class="text-center me-2 mb-2">
+                                                                        <div class="d-flex">
+                                                                            <div class="border border-2 border-primary p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">I</div>
+                                                                            <div class="border border-2 border-primary p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">T</div>
+                                                                        </div>
+                                                                        <small class="text-muted d-block mt-1">国家/地区代码<br><span style="font-size: 10px;">(最多2个字符)</span></small>
+                                                                    </div>
+                                                                    
+                                                                    <!-- 制造商名称 -->
+                                                                    <div class="text-center me-2 mb-2">
+                                                                        <div class="d-flex">
+                                                                            <div class="border border-2 border-success p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">S</div>
+                                                                            <div class="border border-2 border-success p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">I</div>
+                                                                            <div class="border border-2 border-success p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">G</div>
+                                                                            <div class="border border-2 border-success p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">C</div>
+                                                                            <div class="border border-2 border-success p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">O</div>
+                                                                            <div class="border border-2 border-success p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">Y</div>
+                                                                        </div>
+                                                                        <small class="text-muted d-block mt-1">制造商名称<br><span style="font-size: 10px;">(最多6个字符)</span></small>
+                                                                    </div>
+                                                                    
+                                                                    <!-- 地址栏 -->
+                                                                    <div class="text-center me-2 mb-2">
+                                                                        <div class="d-flex">
+                                                                            <div class="border border-2 border-warning p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">1</div>
+                                                                            <div class="border border-2 border-warning p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">6</div>
+                                                                            <div class="border border-2 border-warning p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">4</div>
+                                                                            <div class="border border-2 border-warning p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">0</div>
+                                                                        </div>
+                                                                        <small class="text-muted d-block mt-1">地址栏<br><span style="font-size: 10px;">(最多4个字符)</span></small>
+                                                                    </div>
+                                                                    
+                                                                    <!-- 城市栏 -->
+                                                                    <div class="text-center mb-2">
+                                                                        <div class="d-flex">
+                                                                            <div class="border border-2 border-info p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">S</div>
+                                                                            <div class="border border-2 border-info p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">M</div>
+                                                                            <div class="border border-2 border-info p-2 mx-1" style="width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-weight: bold;">Y</div>
+                                                                        </div>
+                                                                        <small class="text-muted d-block mt-1">城市栏<br><span style="font-size: 10px;">(最多3个字符)</span></small>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="text-center mt-3">
+                                                                    <div class="badge bg-secondary text-white px-3 py-2" style="font-family: monospace; font-size: 16px; letter-spacing: 2px;">
+                                                                        ITSIGCOY1640SMY
+                                                                    </div>
+                                                                    <div class="small text-muted mt-2">完整的MID代码示例</div>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <!-- 第二部分内容 -->
+                                                            <div class="mt-4 pt-3 border-top">
+                                                                <h6 class="card-title text-primary">
+                                                                    <i class="fas fa-clipboard-list me-2"></i>FedEx建议托运人提供哪些类型产品的MID代码？
+                                                                </h6>
+                                                                <p class="card-text">商业用途的货物及服装产品以及那些FDA相关条件约束的MID编码。</p>
+                                                                <p class="card-text"><strong>注意：</strong>即使在上述情况中未被列为须制规范求，某些特定商品/物品的美国海关编码（H.S. code）仍可能需要MID代码。<br>
+                                                                <a href="https://www.trade.gov/data-visualization/us-textile-and-apparel-correlation" target="_blank" class="text-primary text-decoration-none">点击此处可查看制需提供MID代码信息的的货物代码及服装产品的H.S.编码。</a></p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- 专业应用场景 -->
+                                                <div class="card border-0 shadow-sm" style="background: rgba(255,255,255,0.9);">
+                                                    <div class="card-body">
+                                                        <h6 class="fw-bold text-dark mb-4">
+                                                            <i class="fas fa-star me-2"></i>专业应用场景
+                                                        </h6>
+                                                        
+                                                        <div class="row">
+                                                            <div class="col-12">
+                                                                <!-- 1. 为什么MID代码很重要 -->
+                                                                <div class="d-flex align-items-start mb-3 pb-3 border-bottom">
+                                                                    <span class="badge bg-success rounded-circle me-3 mt-1" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px;">1</span>
+                                                                    <div>
+                                                                        <h6 class="mb-2 text-dark fw-bold">为什么MID代码很重要</h6>
+                                                                        <p class="text-muted mb-0">制造商识别（MID）代码对于美国海关和边境保护局（CBP）识别和跟踪进口商品的制造商至关重要。<br>
+                                                                        这些代码在所有CBP入境文件中都是强制性的，有助于促进清关过程。<br>
+                                                                        如果没有有效的MID代码，您的货物可能会在海关面临延误、消关案至被拒，这可能会扰乱您的供应链并造成经济损失。</p>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <!-- 2. 进口文件合规性 -->
+                                                                <div class="d-flex align-items-start mb-3 pb-3 border-bottom">
+                                                                    <span class="badge bg-success rounded-circle me-3 mt-1" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px;">2</span>
+                                                                    <div>
+                                                                        <h6 class="mb-2 text-dark fw-bold">进口文件合规性</h6>
+                                                                        <p class="text-muted mb-0">通过为您的制造商生成准确的MID代码，确保您的美国海关入境符合所有要求。<br>
+                                                                        美国海关和边境保护局要求入境文件上提供有效的MID代码，<br>
+                                                                        MID生成器可帮助您根据CBP规范快速创建这些代码，从而降低因信息不正确而导致延误或罚款的风险。</p>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <!-- 3. 简化多供应商管理 -->
+                                                                <div class="d-flex align-items-start mb-3 pb-3 border-bottom">
+                                                                    <span class="badge bg-success rounded-circle me-3 mt-1" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px;">3</span>
+                                                                    <div>
+                                                                        <h6 class="mb-2 text-dark fw-bold">简化多供应商管理</h6>
+                                                                        <p class="text-muted mb-0">对于与多个海外制造商合作的企业，MID生成器简化了创建和维护供应商识别代码的过程。<br>
+                                                                        您无需手动计算每个新供应商的MID代码（这容易出错），<br>
+                                                                        而是可以快速为整个供应链生成标准化代码，确保进口文件的一致性。</p>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <!-- 4. 为进口专家节省时间 -->
+                                                                <div class="d-flex align-items-start mb-3 pb-3 border-bottom">
+                                                                    <span class="badge bg-success rounded-circle me-3 mt-1" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px;">4</span>
+                                                                    <div>
+                                                                        <h6 class="mb-2 text-dark fw-bold">为进口专家节省时间</h6>
+                                                                        <p class="text-muted mb-0">进口专家和海关经纪人可以通过使用自动化MID代码生成器节省宝贵时间。<br>
+                                                                        MID生成器可以即时处理转换，而无需提取CBP复杂的格式规则手动计算代码，<br>
+                                                                        从而使进口专业人员能够专注于合规性和物流管理的其他关键方面。</p>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <!-- 5. 减少海关文件中的错误 -->
+                                                                <div class="d-flex align-items-start">
+                                                                    <span class="badge bg-success rounded-circle me-3 mt-1" style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px;">5</span>
+                                                                    <div>
+                                                                        <h6 class="mb-2 text-dark fw-bold">减少海关文件中的错误</h6>
+                                                                        <p class="text-muted mb-0">不正确的MID代码可能导致入境被拒，延误货物并可能产生额外费用。<br>
+                                                                        MID生成器通过始终如一地将CBP规则应用于制造商信息，减少了MID生成过程中的人为错误，<br>
+                                                                        有助于确保您的海关文件首次就准确且合规。</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="text-center mt-3">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-info-circle me-1"></i>
+                                                    严格按照FedEx官方MID代码生成标准实现
+                                                </small>
+                                            </div>
+                                            
+                                            <!-- 联系方式和网站主页 -->
+                                            <div class="text-center mt-4 pt-3 border-top">
+                                                <small class="text-muted d-block mb-1">
+                                                    若系统故障，请通知 13424243144 / 13424240034（微信同号）
+                                                </small>
+                                                <a href="https://huodaiagent.com/" target="_blank" class="text-primary text-decoration-none" style="font-size: 0.95em;">货代导航网</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Validate Tab -->
+                    <div class="tab-pane fade" id="validate" role="tabpanel">
+                        <div class="row justify-content-center">
+                            <div class="col-12 col-xl-12">
+                                <div class="card w-100">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">
+                                            <i class="fas fa-shield-alt me-2"></i>MID代码验证
+                                        </h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-4">
+                                            <label for="midValidateInput" class="form-label fw-bold">输入要验证的MID代码</label>
+                                            <input type="text" class="form-control form-control-lg" id="midValidateInput" placeholder="例如：USAPP1CUP">
+                                        </div>
+                                        <button type="button" class="btn btn-primary btn-lg w-100" id="validateBtn">
+                                            <i class="fas fa-check me-2"></i>验证MID代码
+                                        </button>
+                                        
+                                        <div id="validationResult" class="mt-4" style="display: none;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Batch Processing Tab -->
+                    <div class="tab-pane fade" id="batch" role="tabpanel">
+                        <div class="row justify-content-center">
+                            <div class="col-12 col-xl-12">
+                                <div class="card w-100">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">
+                                            <i class="fas fa-list me-2"></i>批量处理
+                                        </h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-4">
+                                            <label for="batchFile" class="form-label fw-bold">上传CSV文件</label>
+                                            <input type="file" class="form-control" id="batchFile" accept=".csv">
+                                            <div class="form-text">选择包含制造商信息的CSV文件进行批量处理</div>
+                                        </div>
+                                        
+                                        <div class="row mb-4">
+                                            <div class="col-md-6">
+                                                <button type="button" class="btn btn-primary btn-lg w-100" id="processBatchBtn">
+                                                    <i class="fas fa-cogs me-2"></i>开始批量处理
+                                                </button>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <button type="button" class="btn btn-outline-secondary btn-lg w-100" id="downloadTemplateBtn">
+                                                    <i class="fas fa-download me-2"></i>下载模板文件
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div id="batchProgress" style="display: none;" class="mb-4">
+                                            <div class="progress">
+                                                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                            </div>
+                                            <div class="text-center mt-2">
+                                                <small class="text-muted">处理中...</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <div id="batchResults" style="display: none;">
+                                            <h6 class="text-success mb-3">
+                                                <i class="fas fa-check-circle me-2"></i>处理完成
+                                            </h6>
+                                            <div id="batchResultsContent"></div>
+                                            <button type="button" class="btn btn-success mt-3" id="downloadResultsBtn">
+                                                <i class="fas fa-download me-2"></i>下载结果
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center text-muted py-4 mt-5">
+        <div class="container">
+            <p class="mb-0">&copy; 2024 制造商识别码MID生成器 | 专业的美国海关进口申报代码生成工具</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 

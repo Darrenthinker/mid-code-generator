@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python安装指南 - MID代码生成器</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; line-height: 1.6; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #0d6efd; text-align: center; margin-bottom: 30px; }
+        h2 { color: #495057; border-bottom: 2px solid #e9ecef; padding-bottom: 10px; }
+        .step { background: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #0d6efd; }
+        .step h3 { margin-top: 0; color: #0d6efd; }
+        .command { background: #2d3748; color: #e2e8f0; padding: 15px; border-radius: 5px; font-family: 'Courier New', monospace; margin: 10px 0; font-size: 14px; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .success { background: #d1edff; border: 1px solid #74c0fc; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .important { background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .btn { display: inline-block; padding: 12px 25px; background: #0d6efd; color: white; text-decoration: none; border-radius: 5px; margin: 10px 5px; font-weight: bold; }
+        .btn:hover { background: #0056b3; }
+        .btn-secondary { background: #6c757d; }
+        .btn-secondary:hover { background: #5a6268; }
+        ul li { margin: 8px 0; }
+        .highlight { background: #ffeb3b; padding: 2px 4px; font-weight: bold; }
+        .code-inline { background: #e9ecef; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐍 Python安装指南</h1>
+        
+        <div class="important">
+            <strong>⚠️ 重要提醒</strong><br>
+            安装过程中最关键的是<span class="highlight">勾选"Add Python to PATH"</span>，否则无法在命令行中使用Python！
+        </div>
+
+        <h2>📥 第一步：下载Python</h2>
+        <div class="step">
+            <h3>1. 访问官网</h3>
+            <p>打开浏览器访问：<strong>https://www.python.org/downloads/</strong></p>
+            <p>
+                <a href="https://www.python.org/downloads/" target="_blank" class="btn">🔗 点击访问Python官网</a>
+            </p>
+        </div>
+
+        <div class="step">
+            <h3>2. 下载安装包</h3>
+            <ul>
+                <li>点击页面上的大黄色按钮："Download Python 3.x.x"</li>
+                <li>会自动检测您的操作系统并下载对应版本</li>
+                <li>如果是Windows 64位系统，文件名类似：<code class="code-inline">python-3.x.x-amd64.exe</code></li>
+                <li>下载大小约25-30MB，请耐心等待</li>
+            </ul>
+        </div>
+
+        <h2>⚙️ 第二步：安装Python</h2>
+        <div class="step">
+            <h3>🚨 关键步骤（必须执行）</h3>
+            <ol>
+                <li>双击下载的安装包运行</li>
+                <li><span class="highlight">务必勾选"Add Python to PATH"</span>（在安装界面底部）</li>
+                <li>选择"Install Now"进行快速安装</li>
+                <li>或选择"Customize installation"进行自定义安装</li>
+            </ol>
+            
+            <div class="important">
+                <strong>📌 为什么要勾选"Add Python to PATH"？</strong><br>
+                这样系统就能在任何位置找到Python命令，否则无法使用<code class="code-inline">python</code>命令启动服务器。
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>🔧 自定义安装选项（可选）</h3>
+            <p>如果选择"Customize installation"，请确保勾选：</p>
+            <ul>
+                <li>✅ pip（Python包管理器）</li>
+                <li>✅ tcl/tk and IDLE（Python开发环境）</li>
+                <li>✅ Python test suite</li>
+                <li>✅ py launcher</li>
+                <li>✅ for all users（为所有用户安装）</li>
+            </ul>
+            <p>高级选项中确保勾选：</p>
+            <ul>
+                <li>✅ <span class="highlight">Add Python to environment variables</span></li>
+                <li>✅ Create shortcuts for installed applications</li>
+                <li>✅ Add Python to PATH</li>
+            </ul>
+        </div>
+
+        <h2>✅ 第三步：验证安装</h2>
+        <div class="step">
+            <h3>1. 打开命令行</h3>
+            <ul>
+                <li>按<kbd>Win + R</kbd>键</li>
+                <li>输入<code class="code-inline">cmd</code>按回车</li>
+                <li>或者在开始菜单搜索"命令提示符"</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>2. 测试Python命令</h3>
+            <p>在命令行中输入以下命令：</p>
+            <div class="command">python --version</div>
+            <p>如果安装成功，应该显示类似：</p>
+            <div class="command">Python 3.11.5</div>
+            
+            <p>也可以尝试：</p>
+            <div class="command">py --version</div>
+        </div>
+
+        <div class="step">
+            <h3>3. 测试pip（包管理器）</h3>
+            <div class="command">pip --version</div>
+            <p>应该显示类似：</p>
+            <div class="command">pip 23.2.1 from ...</div>
+        </div>
+
+        <h2>🚀 第四步：启动MID代码生成器</h2>
+        <div class="success">
+            <h3>安装成功后，您可以：</h3>
+            <ol>
+                <li><strong>方法一：</strong> 双击运行<code class="code-inline">start.bat</code>文件</li>
+                <li><strong>方法二：</strong> 在项目目录打开命令行，运行：
+                    <div class="command">python -m http.server 3005</div>
+                </li>
+                <li><strong>方法三：</strong> 使用Python启动器：
+                    <div class="command">py -m http.server 3005</div>
+                </li>
+            </ol>
+            <p>成功启动后，浏览器访问：<strong>http://localhost:3005</strong></p>
+        </div>
+
+        <h2>🔧 常见问题解决</h2>
+        <div class="step">
+            <h3>❌ "python不是内部或外部命令"</h3>
+            <p><strong>原因：</strong> 安装时没有勾选"Add Python to PATH"</p>
+            <p><strong>解决方案：</strong></p>
+            <ol>
+                <li>重新运行Python安装程序</li>
+                <li>选择"Modify"修改安装</li>
+                <li>确保勾选"Add Python to PATH"</li>
+                <li>或者卸载后重新安装</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>❌ 端口被占用</h3>
+            <p>如果3005端口被占用，可以使用其他端口：</p>
+            <div class="command">python -m http.server 3006</div>
+            <p>然后访问：http://localhost:3006</p>
+        </div>
+
+        <div class="step">
+            <h3>❌ 权限问题</h3>
+            <p>如果遇到权限问题，请：</p>
+            <ol>
+                <li>以管理员身份运行命令提示符</li>
+                <li>或者安装时选择"为所有用户安装"</li>
+            </ol>
+        </div>
+
+        <h2>🎯 安装完成后的操作</h2>
+        <div class="success">
+            <h3>1. 验证Python安装成功</h3>
+            <p>确保命令行中<code class="code-inline">python --version</code>有正确输出</p>
+            
+            <h3>2. 启动MID代码生成器</h3>
+            <p>双击<code class="code-inline">start.bat</code>或在命令行运行Python服务器</p>
+            
+            <h3>3. 开始使用</h3>
+            <p>访问http://localhost:3005开始生成MID代码！</p>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px; padding-top: 30px; border-top: 2px solid #e9ecef;">
+            <a href="https://www.python.org/downloads/" target="_blank" class="btn">🐍 立即下载Python</a>
+            <a href="index.html" class="btn btn-secondary">📋 返回MID生成器</a>
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background: #e9ecef; border-radius: 5px;">
+            <h4>💡 小提示</h4>
+            <ul>
+                <li>Python安装包约25-30MB，下载需要几分钟</li>
+                <li>安装过程约需要2-5分钟</li>
+                <li>安装完成后可能需要重启命令行</li>
+                <li>如果安装过程中遇到问题，可以选择"以管理员身份运行"</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html> 

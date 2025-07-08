@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MID代码生成器 - 启动说明</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #0d6efd; text-align: center; }
+        .method { background: #f8f9fa; padding: 20px; margin: 15px 0; border-radius: 5px; border-left: 4px solid #0d6efd; }
+        .command { background: #2d3748; color: #e2e8f0; padding: 10px; border-radius: 5px; font-family: 'Courier New', monospace; margin: 10px 0; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .success { background: #d1edff; border: 1px solid #74c0fc; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .step { margin: 10px 0; }
+        .btn { display: inline-block; padding: 10px 20px; background: #0d6efd; color: white; text-decoration: none; border-radius: 5px; margin: 5px; }
+        .btn:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 MID代码生成器启动指南</h1>
+        
+        <div class="warning">
+            <strong>⚠️ 检测到Python未安装</strong><br>
+            您的系统似乎没有安装Python，请选择以下任一方法启动服务器：
+        </div>
+
+        <div class="method">
+            <h3>📦 方法一：安装Node.js（推荐）</h3>
+            <div class="step">1. 访问 <a href="https://nodejs.org" target="_blank">https://nodejs.org</a> 下载并安装Node.js</div>
+            <div class="step">2. 安装完成后，在项目目录打开命令行</div>
+            <div class="step">3. 运行以下命令：</div>
+            <div class="command">npm install<br>npm start</div>
+            <div class="step">4. 浏览器会自动打开 http://localhost:3005</div>
+        </div>
+
+        <div class="method">
+            <h3>🐍 方法二：安装Python</h3>
+            <div class="step">1. 访问 <a href="https://www.python.org/downloads/" target="_blank">https://www.python.org/downloads/</a> 下载Python</div>
+            <div class="step">2. 安装时务必勾选 "Add Python to PATH"</div>
+            <div class="step">3. 安装完成后，运行 start.bat 文件</div>
+            <div class="step">4. 或者在命令行运行：</div>
+            <div class="command">python -m http.server 3005</div>
+        </div>
+
+        <div class="method">
+            <h3>📁 方法三：使用Live Server扩展（VS Code）</h3>
+            <div class="step">1. 在VS Code中打开项目文件夹</div>
+            <div class="step">2. 安装"Live Server"扩展</div>
+            <div class="step">3. 右键点击index.html文件</div>
+            <div class="step">4. 选择"Open with Live Server"</div>
+        </div>
+
+        <div class="method">
+            <h3>🌐 方法四：使用在线工具</h3>
+            <div class="step">1. 将所有文件上传到GitHub</div>
+            <div class="step">2. 使用GitHub Pages或Netlify部署</div>
+            <div class="step">3. 获得在线访问链接</div>
+        </div>
+
+        <div class="method">
+            <h3>📱 方法五：直接打开文件（简单但功能受限）</h3>
+            <div class="step">1. 直接双击打开 index.html 文件</div>
+            <div class="step">2. 会在浏览器中打开（但某些功能可能不可用）</div>
+            <div class="warning">注意：此方法可能导致某些功能（如文件上传）无法正常工作</div>
+        </div>
+
+        <div class="success">
+            <h3>✅ 成功启动后</h3>
+            <p>无论使用哪种方法，成功启动后您将看到：</p>
+            <ul>
+                <li>MID Code Generator & Validator 主页面</li>
+                <li>三个主要标签：Generate MID Code, Validate MID Code, Batch Processing</li>
+                <li>智能解析和手动输入两种模式</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="index.html" class="btn">🚀 直接尝试打开（方法五）</a>
+            <a href="https://nodejs.org" target="_blank" class="btn">📦 下载Node.js</a>
+            <a href="https://www.python.org/downloads/" target="_blank" class="btn">🐍 下载Python</a>
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background: #e9ecef; border-radius: 5px;">
+            <h4>🔗 有用的链接</h4>
+            <ul>
+                <li><a href="README.md">详细使用说明 (README.md)</a></li>
+                <li><a href="使用指南.txt">中文使用指南</a></li>
+                <li><a href="start.bat">Windows启动脚本</a></li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html> 

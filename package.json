@@ -1,0 +1,42 @@
+{
+  "name": "mid-code-generator",
+  "version": "1.0.0",
+  "description": "Manufacturer Identification Code (MID) Generator & Validator",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server . -p 3005 -o",
+    "dev": "npx http-server . -p 3005 -o -c-1",
+    "build": "echo 'No build process required for static site'",
+    "test": "echo 'No tests specified'"
+  },
+  "keywords": [
+    "MID",
+    "manufacturer",
+    "identification",
+    "code",
+    "generator",
+    "validator",
+    "customs",
+    "import",
+    "export",
+    "trade"
+  ],
+  "author": "MID Generator Team",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "."
+  },
+  "homepage": "http://localhost:3005",
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+} 
