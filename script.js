@@ -1138,7 +1138,7 @@ class MIDGenerator {
         });
     }
 
-    // Validate MID code structure
+    // Validate MID code structure - 按照FedEx四条规则严格验证
     validateMidCodeStructure(midCode) {
         const validation = {
             isValid: true,
@@ -1147,32 +1147,182 @@ class MIDGenerator {
             breakdown: {}
         };
         
-        // Check length
-        if (midCode.length < 5 || midCode.length > 15) {
-            validation.isValid = false;
-            validation.errors.push('MID code length should be between 5 and 15 characters');
-        }
-        
-        // Check country code
-        const countryCode = midCode.substring(0, 2);
-        const validCountryCodes = Object.values(COUNTRY_CODES).concat(Object.values(CANADA_PROVINCES));
-        
-        if (!validCountryCodes.includes(countryCode)) {
-            validation.warnings.push(`Country code "${countryCode}" not recognized`);
-        }
-        
-        validation.breakdown.country = {
-            value: countryCode,
-            valid: validCountryCodes.includes(countryCode)
-        };
-        
-        // Check if contains only alphanumeric characters
+        // 检查基本格式
         if (!/^[A-Z0-9]+$/.test(midCode)) {
             validation.isValid = false;
-            validation.errors.push('MID code should contain only uppercase letters and numbers');
+            validation.errors.push('MID代码只能包含大写字母和数字');
+            return validation;
+        }
+        
+        // FedX四条规则验证
+        const analysis = this.analyzeMidCodeDetailed(midCode);
+        
+        // 规则1：国家代码验证（前2位，必须是有效的国家代码）
+        if (midCode.length < 2) {
+            validation.isValid = false;
+            validation.errors.push('MID代码太短，缺少国家代码（FedEx规则第1条）');
+        } else {
+            const countryCode = midCode.substring(0, 2);
+            const validCountryCodes = Object.values(COUNTRY_CODES).concat(Object.values(CANADA_PROVINCES));
+            
+            validation.breakdown.country = {
+                value: countryCode,
+                valid: validCountryCodes.includes(countryCode)
+            };
+            
+            if (!validCountryCodes.includes(countryCode)) {
+                validation.isValid = false;
+                validation.errors.push(`国家代码"${countryCode}"无效，请检查是否为有效的ISO国家代码（FedX规则第1条）`);
+            }
+        }
+        
+        // 规则2：制造商名称验证（3-6位字母）
+        if (analysis.company) {
+            validation.breakdown.company = {
+                value: analysis.company,
+                valid: true
+            };
+            
+            if (analysis.company.length < 3) {
+                validation.isValid = false;
+                validation.errors.push(`制造商代码"${analysis.company}"太短，至少需要3位字母（FedX规则第2条）`);
+            } else if (analysis.company.length > 6) {
+                validation.warnings.push(`制造商代码"${analysis.company}"超过6位，建议控制在6位以内（FedX规则第2条）`);
+            }
+            
+            // 检查是否包含数字（制造商代码应该只有字母）
+            if (/\d/.test(analysis.company)) {
+                validation.warnings.push(`制造商代码"${analysis.company}"包含数字，建议只使用字母（FedX规则第2条）`);
+            }
+        } else {
+            validation.isValid = false;
+            validation.errors.push('缺少制造商名称代码（FedX规则第2条）');
+        }
+        
+        // 规则3：地址编号验证（可选，但如果存在必须是数字，最多4位）
+        if (analysis.address) {
+            validation.breakdown.address = {
+                value: analysis.address,
+                valid: true
+            };
+            
+            if (!/^\d+$/.test(analysis.address)) {
+                validation.warnings.push(`地址编号"${analysis.address}"应该只包含数字（FedX规则第3条）`);
+            } else if (analysis.address.length > 4) {
+                validation.warnings.push(`地址编号"${analysis.address}"超过4位，建议控制在4位以内（FedX规则第3条）`);
+            }
+        }
+        
+        // 规则4：城市代码验证（3位字母）
+        if (analysis.city) {
+            validation.breakdown.city = {
+                value: analysis.city,
+                valid: true
+            };
+            
+            if (analysis.city.length !== 3) {
+                validation.warnings.push(`城市代码"${analysis.city}"应该为3位字母（FedX规则第4条）`);
+            }
+            
+            // 检查是否包含数字（城市代码应该只有字母）
+            if (/\d/.test(analysis.city)) {
+                validation.warnings.push(`城市代码"${analysis.city}"包含数字，应该只使用字母（FedX规则第4条）`);
+            }
+        } else {
+            validation.isValid = false;
+            validation.errors.push('缺少城市代码（FedX规则第4条）');
+        }
+        
+        // 整体长度检查
+        if (midCode.length < 5) {
+            validation.isValid = false;
+            validation.errors.push('MID代码总长度不足，至少需要5位（国家2位+制造商3位）');
+        } else if (midCode.length > 15) {
+            validation.warnings.push('MID代码总长度超过15位，可能影响系统识别');
         }
         
         return validation;
+    }
+
+    // 详细分析MID代码组成 - 用于验证
+    analyzeMidCodeDetailed(midCode) {
+        const analysis = {
+            country: { code: '', name: '' },
+            company: '',
+            address: '',
+            city: ''
+        };
+        
+        if (midCode.length < 2) return analysis;
+        
+        // 提取国家代码（前2位）
+        analysis.country.code = midCode.substring(0, 2);
+        
+        // 查找国家名称
+        for (const [country, code] of Object.entries(COUNTRY_CODES)) {
+            if (code === analysis.country.code) {
+                analysis.country.name = country;
+                break;
+            }
+        }
+        
+        // 检查加拿大省份代码
+        if (!analysis.country.name) {
+            for (const [province, code] of Object.entries(CANADA_PROVINCES)) {
+                if (code === analysis.country.code) {
+                    analysis.country.name = `Canada (${province})`;
+                    break;
+                }
+            }
+        }
+        
+        const remaining = midCode.substring(2);
+        if (remaining.length === 0) return analysis;
+        
+        // 按照FedX标准解析：制造商名称+地址编号+城市代码
+        // 最后3位是城市代码
+        if (remaining.length >= 3) {
+            analysis.city = remaining.substring(remaining.length - 3);
+            
+            // 检查城市代码是否只包含字母
+            if (!/^[A-Z]+$/.test(analysis.city)) {
+                // 如果包含数字，可能解析有误，尝试重新解析
+                const letters = remaining.match(/[A-Z]+/g) || [];
+                const numbers = remaining.match(/\d+/g) || [];
+                
+                if (letters.length > 0) {
+                    // 最后一个字母组合可能是城市
+                    analysis.city = letters[letters.length - 1];
+                    // 第一个字母组合是制造商
+                    if (letters.length > 1) {
+                        analysis.company = letters[0];
+                    }
+                }
+                
+                if (numbers.length > 0) {
+                    analysis.address = numbers[0];
+                }
+            } else {
+                // 城市代码正常，解析制造商和地址
+                const beforeCity = remaining.substring(0, remaining.length - 3);
+                
+                // 查找数字（地址编号）
+                const addressMatch = beforeCity.match(/\d+/);
+                if (addressMatch) {
+                    analysis.address = addressMatch[0];
+                    // 制造商名称是剩余的字母部分
+                    analysis.company = beforeCity.replace(/\d+/g, '');
+                } else {
+                    // 没有地址编号，全部是制造商名称
+                    analysis.company = beforeCity;
+                }
+            }
+        } else {
+            // 长度不足3位城市代码，全部当作制造商名称
+            analysis.company = remaining;
+        }
+        
+        return analysis;
     }
 
     // Display validation status
@@ -1257,7 +1407,7 @@ class MIDGenerator {
         }
         
         const validation = this.validateMidCodeStructure(midCode);
-        const analysis = this.analyzeMidCode(midCode);
+        const analysis = this.analyzeMidCodeDetailed(midCode);
         
         this.displayValidationResult(midCode, validation, analysis);
     }
@@ -1271,68 +1421,12 @@ class MIDGenerator {
             document.getElementById('midValidateInput').value = midCode;
             
             // Validate if length is reasonable
-            if (midCode.length >= 5) {
+            if (midCode.length >= 2) {  // 降低实时验证门槛
                 const validation = this.validateMidCodeStructure(midCode);
-                const analysis = this.analyzeMidCode(midCode);
+                const analysis = this.analyzeMidCodeDetailed(midCode);
                 this.displayValidationResult(midCode, validation, analysis);
             }
         }
-    }
-
-    // Analyze MID code components
-    analyzeMidCode(midCode) {
-        const analysis = {
-            country: { code: '', name: '' },
-            company: '',
-            address: '',
-            city: ''
-        };
-        
-        // Extract country code
-        const countryCode = midCode.substring(0, 2);
-        analysis.country.code = countryCode;
-        
-        // Find country name
-        for (const [country, code] of Object.entries(COUNTRY_CODES)) {
-            if (code === countryCode) {
-                analysis.country.name = country;
-                break;
-            }
-        }
-        
-        // Check Canadian provinces
-        if (!analysis.country.name) {
-            for (const [province, code] of Object.entries(CANADA_PROVINCES)) {
-                if (code === countryCode) {
-                    analysis.country.name = `Canada (${province})`;
-                    break;
-                }
-            }
-        }
-        
-        // Extract other components (simplified analysis)
-        const remaining = midCode.substring(2);
-        
-        // Last 3 characters are likely city code
-        if (remaining.length >= 3) {
-            analysis.city = remaining.substring(remaining.length - 3);
-        }
-        
-        // Middle part is company + address
-        if (remaining.length > 3) {
-            const middle = remaining.substring(0, remaining.length - 3);
-            
-            // Look for numbers (address)
-            const numberMatch = middle.match(/\d+/);
-            if (numberMatch) {
-                analysis.address = numberMatch[0];
-                analysis.company = middle.replace(/\d+/g, '');
-            } else {
-                analysis.company = middle;
-            }
-        }
-        
-        return analysis;
     }
 
     // Display validation result
@@ -1523,37 +1617,61 @@ class MIDGenerator {
         return data;
     }
 
-    // Process batch data
+    // Process batch data - 按照FedX四条规则验证
     processBatchData(data) {
         const results = [];
         
         data.forEach((row, index) => {
             try {
-                const countryCode = this.getCountryCode(row.country);
-                
-                if (!countryCode) {
-                    throw new Error(`Unknown country: ${row.country}`);
-                }
-                
+                // 预处理数据
                 const processedData = {
-                    country: { name: row.country, code: countryCode },
-                    company: row.company,
+                    country: { name: row.country.trim(), code: '' },
+                    company: row.company.trim(),
                     address: this.extractAddressNumbers(row.address),
-                    city: row.city
+                    city: row.city.trim()
                 };
                 
+                // 获取国家代码
+                const countryCode = this.getCountryCode(processedData.country.name);
+                if (countryCode) {
+                    processedData.country.code = countryCode;
+                } else {
+                    processedData.country.code = processedData.country.name.toUpperCase().substring(0, 2);
+                }
+                
+                // 先进行FedX四条规则验证
+                const requirementsValidation = this.validateMidRequirements(processedData);
+                
+                if (!requirementsValidation.isValid) {
+                    // 如果不符合基本要求，直接返回错误
+                    results.push({
+                        row: index + 1,
+                        company: row.company,
+                        country: row.country,
+                        midCode: '',
+                        status: 'error',
+                        errors: requirementsValidation.errors,
+                        warnings: requirementsValidation.warnings
+                    });
+                    return;
+                }
+                
+                // 生成MID代码
                 const midCode = this.generateMidCode(processedData);
-                const validation = this.validateMidCodeStructure(midCode);
+                
+                // 验证生成的MID代码结构
+                const structureValidation = this.validateMidCodeStructure(midCode);
                 
                 results.push({
                     row: index + 1,
                     company: row.company,
                     country: row.country,
                     midCode: midCode,
-                    status: validation.isValid ? 'success' : 'error',
-                    errors: validation.errors,
-                    warnings: validation.warnings
+                    status: structureValidation.isValid ? 'success' : 'warning',
+                    errors: structureValidation.errors,
+                    warnings: [...(requirementsValidation.warnings || []), ...(structureValidation.warnings || [])]
                 });
+                
             } catch (error) {
                 results.push({
                     row: index + 1,
@@ -1570,35 +1688,127 @@ class MIDGenerator {
         this.displayBatchResults(results);
     }
 
-    // Display batch processing results
+    // Display batch processing results - 按照FedX标准显示详细结果
     displayBatchResults(results) {
         const resultDiv = document.getElementById('batchResults');
         const contentDiv = document.getElementById('batchResultsContent');
         
-        let html = '<div class="table-responsive"><table class="table table-striped">';
-        html += '<thead><tr><th>Row</th><th>Company</th><th>Country</th><th>MID Code</th><th>Status</th></tr></thead><tbody>';
+        let html = '<div class="table-responsive"><table class="table table-striped table-hover">';
+        html += `<thead class="table-dark">
+            <tr>
+                <th width="5%">行号</th>
+                <th width="20%">制造商名称</th>
+                <th width="15%">国家</th>
+                <th width="15%">MID代码</th>
+                <th width="10%">状态</th>
+                <th width="35%">详细信息</th>
+            </tr>
+        </thead><tbody>`;
         
         results.forEach(result => {
-            const statusClass = result.status === 'success' ? 'text-success' : 'text-danger';
-            const statusIcon = result.status === 'success' ? 'fa-check' : 'fa-times';
+            let statusClass, statusIcon, statusText;
+            
+            if (result.status === 'success') {
+                statusClass = 'text-success';
+                statusIcon = 'fa-check-circle';
+                statusText = '成功';
+            } else if (result.status === 'warning') {
+                statusClass = 'text-warning';
+                statusIcon = 'fa-exclamation-triangle';
+                statusText = '警告';
+            } else {
+                statusClass = 'text-danger';
+                statusIcon = 'fa-times-circle';
+                statusText = '错误';
+            }
+            
+            // 构建详细信息
+            let details = '';
+            if (result.errors && result.errors.length > 0) {
+                details += '<div class="small text-danger mb-1">';
+                details += '<i class="fas fa-exclamation-circle me-1"></i>错误：<br>';
+                result.errors.forEach(error => {
+                    details += `• ${error}<br>`;
+                });
+                details += '</div>';
+            }
+            
+            if (result.warnings && result.warnings.length > 0) {
+                details += '<div class="small text-warning">';
+                details += '<i class="fas fa-exclamation-triangle me-1"></i>警告：<br>';
+                result.warnings.forEach(warning => {
+                    details += `• ${warning}<br>`;
+                });
+                details += '</div>';
+            }
+            
+            if (!details && result.status === 'success') {
+                details = '<span class="small text-success"><i class="fas fa-check me-1"></i>符合FedX四条标准</span>';
+            }
             
             html += `<tr>
-                <td>${result.row}</td>
-                <td>${result.company}</td>
+                <td class="text-center">${result.row}</td>
+                <td title="${result.company}">${result.company.length > 20 ? result.company.substring(0, 20) + '...' : result.company}</td>
                 <td>${result.country}</td>
-                <td><code>${result.midCode}</code></td>
-                <td><i class="fas ${statusIcon} ${statusClass}"></i></td>
+                <td><code class="bg-light px-2 py-1 rounded">${result.midCode || '-'}</code></td>
+                <td class="text-center">
+                    <i class="fas ${statusIcon} ${statusClass} me-1"></i>
+                    <span class="${statusClass} small">${statusText}</span>
+                </td>
+                <td>${details}</td>
             </tr>`;
         });
         
         html += '</tbody></table></div>';
         
-        // Summary
+        // 改进的汇总信息
         const successful = results.filter(r => r.status === 'success').length;
-        const failed = results.length - successful;
+        const warnings = results.filter(r => r.status === 'warning').length;
+        const failed = results.filter(r => r.status === 'error').length;
+        const total = results.length;
         
-        html += `<div class="mt-3">
-            <p><strong>Summary:</strong> ${successful} successful, ${failed} failed out of ${results.length} total records.</p>
+        html += `<div class="mt-4 p-3 bg-light rounded border">
+            <h6 class="mb-3"><i class="fas fa-chart-pie me-2"></i>批量处理汇总</h6>
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <div class="card border-success">
+                        <div class="card-body py-2">
+                            <h5 class="text-success mb-1">${successful}</h5>
+                            <small class="text-muted">成功生成</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-warning">
+                        <div class="card-body py-2">
+                            <h5 class="text-warning mb-1">${warnings}</h5>
+                            <small class="text-muted">有警告</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-danger">
+                        <div class="card-body py-2">
+                            <h5 class="text-danger mb-1">${failed}</h5>
+                            <small class="text-muted">生成失败</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-primary">
+                        <div class="card-body py-2">
+                            <h5 class="text-primary mb-1">${total}</h5>
+                            <small class="text-muted">总计</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 text-center">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    所有验证均基于 <strong>FedX官方四条标准</strong>：国家代码、制造商名称、地址编号、城市代码
+                </small>
+            </div>
         </div>`;
         
         contentDiv.innerHTML = html;
