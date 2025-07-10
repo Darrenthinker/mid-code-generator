@@ -362,7 +362,7 @@ class MIDGenerator {
         // Parse city
         result.city = this.extractCity(fullInfo);
         
-        // Parse address numbers from address line
+        // Parse address numbers from address line or full text
         result.address = this.extractAddressNumbers(lineClassification.addressLine || fullInfo);
         
         // Calculate confidence
@@ -400,11 +400,14 @@ class MIDGenerator {
     extractCity(text) {
         const lines = text.split('\n').map(line => line.trim()).filter(line => line);
         
-        // Known major cities for better recognition
+        // Known major cities for better recognition - 扩展澳洲城市
         const majorCities = [
+            // 中国城市
             'beijing', 'shanghai', 'shenzhen', 'guangzhou', 'chengdu', 'hangzhou', 'wuhan', 'nanjing',
             'tianjin', 'chongqing', 'suzhou', 'xi\'an', 'qingdao', 'dalian', 'ningbo', 'xiamen',
+            // 英国城市
             'london', 'manchester', 'birmingham', 'liverpool', 'leeds', 'glasgow', 'bristol',
+            // 美国城市
             'new york', 'los angeles', 'chicago', 'houston', 'phoenix', 'philadelphia', 'san antonio',
             'san diego', 'dallas', 'san jose', 'austin', 'jacksonville', 'san francisco', 'columbus',
             'charlotte', 'indianapolis', 'seattle', 'denver', 'washington', 'boston', 'el paso',
@@ -415,7 +418,16 @@ class MIDGenerator {
             'cleveland', 'bakersfield', 'aurora', 'anaheim', 'honolulu', 'santa ana', 'corpus christi',
             'riverside', 'lexington', 'stockton', 'toledo', 'st. paul', 'newark', 'greensboro',
             'plano', 'henderson', 'lincoln', 'buffalo', 'jersey city', 'chula vista', 'fort wayne',
-            'orlando', 'st. petersburg', 'chandler', 'laredo', 'norfolk', 'durham', 'madison'
+            'orlando', 'st. petersburg', 'chandler', 'laredo', 'norfolk', 'durham', 'madison',
+            // 澳洲城市 - 新增
+            'melbourne', 'sydney', 'brisbane', 'perth', 'adelaide', 'gold coast', 'newcastle', 'canberra',
+            'sunshine coast', 'wollongong', 'hobart', 'geelong', 'townsville', 'cairns', 'toowoomba',
+            'darwin', 'ballarat', 'bendigo', 'albury', 'launceston', 'mackay', 'rockhampton', 'bunbury',
+            // 加拿大城市
+            'toronto', 'montreal', 'vancouver', 'calgary', 'edmonton', 'ottawa', 'winnipeg', 'quebec city',
+            // 其他国际主要城市
+            'tokyo', 'seoul', 'singapore', 'hong kong', 'bangkok', 'kuala lumpur', 'jakarta', 'manila',
+            'mumbai', 'delhi', 'bangalore', 'chennai', 'kolkata', 'hyderabad', 'pune', 'ahmedabad'
         ];
         
         // First, try to find known cities in any line
@@ -439,20 +451,39 @@ class MIDGenerator {
             const parts = line.split(',').map(part => part.trim());
             
             if (parts.length >= 2) {
+                // 优先查找真正的城市，避免州/省名
+                let cityCandidate = '';
+                let stateProvince = '';
+                
+                // 识别州/省和国家
+                const stateProvinces = ['victoria', 'nsw', 'queensland', 'western australia', 'south australia', 'tasmania', 'act', 'nt', 'california', 'ca', 'texas', 'tx', 'florida', 'fl', 'new york', 'ny', 'guangdong', 'beijing', 'shanghai', 'jiangsu', 'zhejiang'];
+                
                 // Check each part for city-like patterns
                 for (let i = 0; i < parts.length; i++) {
                     const part = parts[i];
+                    const lowerPart = part.toLowerCase();
                     
                     // Skip parts that look like building numbers, districts, or countries
                     if (/^\d+/.test(part)) continue; // Starts with number
                     if (/district|zone|area|region|county|province|state|country/i.test(part)) continue;
                     if (this.getCountryCode(part)) continue; // Is a country
                     
+                    // 检查是否是州/省名
+                    if (stateProvinces.some(sp => lowerPart.includes(sp))) {
+                        stateProvince = part;
+                        continue; // 跳过州/省名
+                    }
+                    
                     // Look for city-like parts (usually single word or two words, no numbers)
                     if (part.length > 2 && part.length < 20 && !/\d/.test(part)) {
                         // If it contains common city identifiers
                         if (/city|town|village/i.test(part)) {
                             return part.replace(/city|town|village/gi, '').trim();
+                        }
+                        
+                        // 如果是可能的城市候选（不是州/省）
+                        if (!cityCandidate) {
+                            cityCandidate = part;
                         }
                         
                         // If it's in a position where cities usually appear (after districts, before provinces)
@@ -462,16 +493,21 @@ class MIDGenerator {
                             
                             // Previous part mentions district/area, next part mentions province/state
                             if ((prevPart.includes('district') || prevPart.includes('zone') || prevPart.includes('area')) &&
-                                (nextPart.includes('province') || nextPart.includes('state') || this.getCountryCode(nextPart))) {
+                                (nextPart.includes('province') || nextPart.includes('state') || this.getCountryCode(nextPart) || stateProvinces.some(sp => nextPart.includes(sp)))) {
                                 return part;
                             }
                         }
                         
-                        // If it's the last non-country part
-                        if (i === parts.length - 2 && this.getCountryCode(parts[parts.length - 1])) {
+                        // If it's the last non-country part but not a state/province
+                        if (i === parts.length - 2 && this.getCountryCode(parts[parts.length - 1]) && !stateProvinces.some(sp => lowerPart.includes(sp))) {
                             return part;
                         }
                     }
+                }
+                
+                // 如果找到了城市候选而且不是州/省，返回它
+                if (cityCandidate && cityCandidate !== stateProvince) {
+                    return cityCandidate;
                 }
             }
         }
@@ -608,10 +644,14 @@ class MIDGenerator {
         }
         
         // FedEx规则第3条：地址编号（可选，但如果提供需要是数字）
-        if (data.address && data.address.trim() !== '') {
+        if (!data.address || data.address.trim() === '') {
+            warnings.push('缺少地址编号 - 根据FedX官方示例AUOZR92MEL，地址编号92对生成完整MID代码很重要');
+        } else {
             const addressNum = data.address.trim();
             if (!/^\d+$/.test(addressNum)) {
-                warnings.push('地址编号应为纯数字（如：73、1640等）');
+                warnings.push('地址编号应为纯数字（如：92、73、1640等）');
+            } else if (addressNum.length > 4) {
+                warnings.push('地址编号超过4位，建议控制在4位以内');
             }
         }
         
@@ -694,15 +734,29 @@ class MIDGenerator {
         return filteredWords.join(' ');
     }
 
-    // Extract address numbers with improved logic
+    // Extract address numbers with improved logic - 修复地址编号提取
     extractAddressNumbers(addressText) {
         if (!addressText) return '';
         
         // If we have a specific address line, use it directly
         let targetText = addressText;
         
-        // If it's multi-line text, extract from all lines
+        // If it's multi-line text, extract from all lines looking for address-like content
         const lines = addressText.split('\n').map(line => line.trim()).filter(line => line);
+        
+        // 优先从包含street/road/avenue等地址关键词的行提取数字
+        let addressLine = '';
+        for (const line of lines) {
+            if (/\b(street|st|road|rd|avenue|ave|way|drive|dr|lane|ln|springs|place|pl)\b/i.test(line)) {
+                addressLine = line;
+                break;
+            }
+        }
+        
+        // 如果找到了地址行，优先使用它
+        if (addressLine) {
+            targetText = addressLine;
+        }
         
         let allNumbers = [];
         
@@ -714,7 +768,7 @@ class MIDGenerator {
         
         if (allNumbers.length === 0) return '';
         
-        // Filter logic for address numbers
+        // Filter logic for address numbers - 更智能的过滤
         let validNumbers = allNumbers.filter(num => {
             // Remove obvious postal codes (typically 5+ digits)
             if (num >= 10000) return false;
@@ -737,7 +791,7 @@ class MIDGenerator {
         // as it's usually the building/street number
         let addressNumber;
         
-        // Look for patterns like "No.7-3" or "Building 123"
+        // Look for patterns like "No.7-3" or "Building 123" or simple "92, Alice Springs Road"
         const noPattern = targetText.match(/(?:no\.?\s*|number\s*|#\s*)(\d+)(?:[-\s](\d+))?/i);
         if (noPattern) {
             // If we have "No.7-3", combine them as "73" 
@@ -747,8 +801,14 @@ class MIDGenerator {
                 addressNumber = parseInt(noPattern[1]);
             }
         } else {
-            // Use the first number found
-            addressNumber = validNumbers[0];
+            // Look for street number pattern "92, Alice Springs Road" or "123 Main Street"
+            const streetPattern = targetText.match(/^(\d+)[,\s]+.*(?:street|st|road|rd|avenue|ave|way|drive|dr|lane|ln|springs|place|pl)/i);
+            if (streetPattern) {
+                addressNumber = parseInt(streetPattern[1]);
+            } else {
+                // Use the first number found
+                addressNumber = validNumbers[0];
+            }
         }
         
         // Limit to 4 digits max
