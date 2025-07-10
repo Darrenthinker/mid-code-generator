@@ -107,6 +107,172 @@ class MIDGenerator {
         document.getElementById('manualInputMode').style.display = smartMode ? 'none' : 'block';
     }
 
+    // Intelligently classify lines to identify company vs address
+    classifyLines(lines) {
+        const result = {
+            companyLine: '',
+            addressLine: '',
+            companyLineIndex: -1,
+            addressLineIndex: -1
+        };
+
+        // Company indicators (case insensitive) - strong indicators
+        const companyIndicators = [
+            'co.', 'ltd.', 'ltd', 'inc.', 'inc', 'corp.', 'corp', 'corporation', 
+            'company', 'limited', 'incorporated', 'llc', 'plc', 'gmbh', 'ag', 
+            'sa', 'spa', 'srl', 'bv', 'nv', 'oy', 'ab', 'as', 'technology', 
+            'technologies', 'tech', 'systems', 'solutions', 'group', 'holding',
+            'industrial', 'manufacturing', 'factory', 'enterprise', 'international'
+        ];
+
+        // Strong address indicators
+        const strongAddressIndicators = [
+            'no.', 'number', '#', 'zone', 'district', 'community', 'street', 'road',
+            'avenue', 'building', 'floor', 'unit', 'suite', 'room', 'block', 'lot'
+        ];
+
+        let bestCompany = { line: '', score: 0, index: -1 };
+        let bestAddress = { line: '', score: 0, index: -1 };
+
+        // Score each line
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const lowerLine = line.toLowerCase();
+            
+            let companyScore = 0;
+            let addressScore = 0;
+
+            // Strong company indicators
+            companyIndicators.forEach(indicator => {
+                if (lowerLine.includes(indicator)) {
+                    companyScore += 20; // Increased weight for company indicators
+                }
+            });
+
+            // Strong address indicators
+            strongAddressIndicators.forEach(indicator => {
+                if (lowerLine.includes(indicator)) {
+                    addressScore += 15;
+                }
+            });
+
+            // Numbers pattern analysis
+            const numberMatches = line.match(/\d+/g);
+            if (numberMatches) {
+                // Building numbers like "No.7-3" strongly indicate address
+                if (/no\.?\s*\d+[-\s]?\d*/i.test(line)) {
+                    addressScore += 25;
+                }
+                // Multiple numbers often indicate address
+                else if (numberMatches.length >= 2) {
+                    addressScore += 10;
+                } else {
+                    // Single number could be company (like year) or address
+                    addressScore += 3;
+                }
+            }
+
+            // Comma count analysis - addresses often have more geographical hierarchy
+            const commaCount = (line.match(/,/g) || []).length;
+            if (commaCount >= 4) {
+                addressScore += 15; // Very likely address with geographic hierarchy
+            } else if (commaCount >= 2) {
+                addressScore += 8;
+            }
+
+            // Country detection strongly indicates address line
+            if (this.isCountryLine(line)) {
+                addressScore += 20;
+            }
+
+            // Length and structure analysis
+            if (line.length > 60 && commaCount >= 3) {
+                addressScore += 10; // Long lines with commas likely addresses
+            }
+
+            // Update best scores
+            if (companyScore > addressScore && companyScore > bestCompany.score) {
+                bestCompany = { line, score: companyScore, index: i };
+            }
+
+            if (addressScore > companyScore && addressScore > bestAddress.score) {
+                bestAddress = { line, score: addressScore, index: i };
+            }
+        }
+
+        // Apply results if scores are significant
+        if (bestCompany.score >= 10) {
+            result.companyLine = bestCompany.line;
+            result.companyLineIndex = bestCompany.index;
+        }
+
+        if (bestAddress.score >= 15) {
+            result.addressLine = bestAddress.line;
+            result.addressLineIndex = bestAddress.index;
+        }
+
+        // Fallback logic - use position and content heuristics
+        if (!result.companyLine || !result.addressLine) {
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const lowerLine = line.toLowerCase();
+                
+                // Look for company line
+                if (!result.companyLine && i !== result.addressLineIndex) {
+                    // Lines with company suffixes but no address indicators
+                    if (companyIndicators.some(ind => lowerLine.includes(ind)) && 
+                        !strongAddressIndicators.some(ind => lowerLine.includes(ind))) {
+                        result.companyLine = line;
+                        result.companyLineIndex = i;
+                    }
+                    // Short lines without numbers or commas are likely company names
+                    else if (line.length < 60 && !/\d/.test(line) && !line.includes(',')) {
+                        result.companyLine = line;
+                        result.companyLineIndex = i;
+                    }
+                }
+
+                // Look for address line
+                if (!result.addressLine && i !== result.companyLineIndex) {
+                    // Lines starting with "No." or containing geographic terms
+                    if (/^no\.?\s*\d+/i.test(line) || 
+                        /zone|district|community|street|road/i.test(line)) {
+                        result.addressLine = line;
+                        result.addressLineIndex = i;
+                    }
+                    // Long lines with numbers and commas
+                    else if (line.length > 40 && /\d/.test(line) && line.includes(',')) {
+                        result.addressLine = line;
+                        result.addressLineIndex = i;
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // Helper function to calculate line score
+    getLineScore(line, indicators, type) {
+        let score = 0;
+        const lowerLine = line.toLowerCase();
+        
+        indicators.forEach(indicator => {
+            if (lowerLine.includes(indicator)) {
+                score += 10;
+            }
+        });
+
+        if (type === 'address') {
+            const numberMatches = line.match(/\d+/g);
+            if (numberMatches) {
+                score += numberMatches.length * 5;
+            }
+        }
+
+        return score;
+    }
+
     // Parse complete information using smart algorithm
     parseInformation() {
         const fullInfo = document.getElementById('fullInfo').value.trim();
@@ -118,20 +284,34 @@ class MIDGenerator {
 
         try {
             const parsedData = this.intelligentParse(fullInfo);
+            console.log('解析结果:', parsedData); // 调试信息
+            
+            // 验证解析结果是否符合FedEx四条规则
+            const validationResult = this.validateMidRequirements(parsedData);
+            console.log('验证结果:', validationResult); // 调试信息
+            
+            if (!validationResult.isValid) {
+                console.log('验证失败，显示错误信息'); // 调试信息
+                this.showAlert(validationResult.message, 'warning');
+                return;
+            }
+            
             // 直接生成MID码，不显示中间解析步骤
             const midCode = this.generateMidCode(parsedData);
             this.displayMidCode(midCode, parsedData);
         } catch (error) {
-            this.showAlert('解析信息时出错：' + error.message, 'danger');
+            console.log('生成失败:', error); // 调试信息
+            this.showAlert('生成MID代码失败：' + error.message, 'danger');
         }
     }
 
-    // Enhanced intelligent parsing
+            // Enhanced intelligent parsing
     intelligentParse(fullInfo) {
         const lines = fullInfo.split('\n').map(line => line.trim()).filter(line => line);
         
-        if (lines.length < 2) {
-            throw new Error('请提供完整的制造商信息（至少包含公司名称和地址）');
+        // 不再要求至少2行，单行也可以解析（但会缺少公司名）
+        if (lines.length === 0) {
+            throw new Error('请输入制造商信息');
         }
         
         const result = {
@@ -142,18 +322,48 @@ class MIDGenerator {
             confidence: 0
         };
         
-        // Parse company (first line)
-        result.company = lines[0];
+        // Intelligent line classification
+        const lineClassification = this.classifyLines(lines);
         
-        // Parse country (last line or line containing country keywords)
+        // Extract company name - 如果智能识别没找到，尝试从非地址行中找
+        result.company = lineClassification.companyLine || '';
+        
+        // 如果没有找到公司行，尝试找一个不是地址的行作为公司名
+        if (!result.company && lines.length > 1) {
+            for (let i = 0; i < lines.length; i++) {
+                if (i !== lineClassification.addressLineIndex) {
+                    const line = lines[i];
+                    // 避免明显的地址行（包含太多地理信息）
+                    if (!(/\b(district|zone|community|street|road|guangdong|china|mainland)\b/i.test(line))) {
+                        result.company = line;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // 如果只有一行，并且这行看起来是地址，则公司名为空
+        if (!result.company && lines.length === 1) {
+            const singleLine = lines[0];
+            // 检查是否包含明显的地址信息
+            if (/\b(no\.|number|district|zone|community|street|road|china|mainland)\b/i.test(singleLine)) {
+                // 这行看起来是地址，公司名保持为空
+                result.company = '';
+            } else {
+                // 这行可能是公司名
+                result.company = singleLine;
+            }
+        }
+        
+        // Parse country
         const countryInfo = this.extractCountry(fullInfo);
         result.country = { name: countryInfo, code: this.getCountryCode(countryInfo) };
         
-        // Parse city (usually second to last line or extract from text)
+        // Parse city
         result.city = this.extractCity(fullInfo);
         
-        // Parse address numbers
-        result.address = this.extractAddressNumbers(fullInfo);
+        // Parse address numbers from address line
+        result.address = this.extractAddressNumbers(lineClassification.addressLine || fullInfo);
         
         // Calculate confidence
         result.confidence = this.calculateConfidence(result);
@@ -190,42 +400,271 @@ class MIDGenerator {
     extractCity(text) {
         const lines = text.split('\n').map(line => line.trim()).filter(line => line);
         
-        // Usually city is in the second to last line or line with postal code
-        if (lines.length >= 2) {
-            // Try second to last line first
-            let cityLine = lines[lines.length - 2];
+        // Known major cities for better recognition
+        const majorCities = [
+            'beijing', 'shanghai', 'shenzhen', 'guangzhou', 'chengdu', 'hangzhou', 'wuhan', 'nanjing',
+            'tianjin', 'chongqing', 'suzhou', 'xi\'an', 'qingdao', 'dalian', 'ningbo', 'xiamen',
+            'london', 'manchester', 'birmingham', 'liverpool', 'leeds', 'glasgow', 'bristol',
+            'new york', 'los angeles', 'chicago', 'houston', 'phoenix', 'philadelphia', 'san antonio',
+            'san diego', 'dallas', 'san jose', 'austin', 'jacksonville', 'san francisco', 'columbus',
+            'charlotte', 'indianapolis', 'seattle', 'denver', 'washington', 'boston', 'el paso',
+            'detroit', 'nashville', 'portland', 'oklahoma city', 'las vegas', 'louisville', 'baltimore',
+            'milwaukee', 'albuquerque', 'tucson', 'fresno', 'sacramento', 'mesa', 'kansas city',
+            'atlanta', 'colorado springs', 'omaha', 'raleigh', 'miami', 'long beach', 'virginia beach',
+            'oakland', 'minneapolis', 'tulsa', 'arlington', 'tampa', 'new orleans', 'wichita',
+            'cleveland', 'bakersfield', 'aurora', 'anaheim', 'honolulu', 'santa ana', 'corpus christi',
+            'riverside', 'lexington', 'stockton', 'toledo', 'st. paul', 'newark', 'greensboro',
+            'plano', 'henderson', 'lincoln', 'buffalo', 'jersey city', 'chula vista', 'fort wayne',
+            'orlando', 'st. petersburg', 'chandler', 'laredo', 'norfolk', 'durham', 'madison'
+        ];
+        
+        // First, try to find known cities in any line
+        for (const line of lines) {
+            const lowerLine = line.toLowerCase();
+            for (const city of majorCities) {
+                if (lowerLine.includes(city)) {
+                    // Extract the city name from the line
+                    const cityRegex = new RegExp(`\\b${city}\\b`, 'i');
+                    const match = line.match(cityRegex);
+                    if (match) {
+                        return match[0];
+                    }
+                }
+            }
+        }
+        
+        // If no known city found, use pattern-based extraction
+        for (const line of lines) {
+            // Look for patterns where city appears after district/county but before province/state
+            const parts = line.split(',').map(part => part.trim());
             
-            // Remove postal codes and country info
-            cityLine = cityLine.replace(/\b\d{5}(-\d{4})?\b/g, ''); // US postal codes
-            cityLine = cityLine.replace(/\b[A-Z]{2}\s+\d{5}\b/g, ''); // State + postal code
-            cityLine = cityLine.replace(/,.*$/, ''); // Everything after comma
-            
-            return cityLine.trim();
+            if (parts.length >= 2) {
+                // Check each part for city-like patterns
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i];
+                    
+                    // Skip parts that look like building numbers, districts, or countries
+                    if (/^\d+/.test(part)) continue; // Starts with number
+                    if (/district|zone|area|region|county|province|state|country/i.test(part)) continue;
+                    if (this.getCountryCode(part)) continue; // Is a country
+                    
+                    // Look for city-like parts (usually single word or two words, no numbers)
+                    if (part.length > 2 && part.length < 20 && !/\d/.test(part)) {
+                        // If it contains common city identifiers
+                        if (/city|town|village/i.test(part)) {
+                            return part.replace(/city|town|village/gi, '').trim();
+                        }
+                        
+                        // If it's in a position where cities usually appear (after districts, before provinces)
+                        if (i > 0 && i < parts.length - 1) {
+                            const prevPart = parts[i-1].toLowerCase();
+                            const nextPart = parts[i+1].toLowerCase();
+                            
+                            // Previous part mentions district/area, next part mentions province/state
+                            if ((prevPart.includes('district') || prevPart.includes('zone') || prevPart.includes('area')) &&
+                                (nextPart.includes('province') || nextPart.includes('state') || this.getCountryCode(nextPart))) {
+                                return part;
+                            }
+                        }
+                        
+                        // If it's the last non-country part
+                        if (i === parts.length - 2 && this.getCountryCode(parts[parts.length - 1])) {
+                            return part;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Fallback: try to extract city from address-like lines
+        for (const line of lines) {
+            if (line.includes(',')) {
+                const parts = line.split(',').map(part => part.trim());
+                // Look for parts that could be cities (no numbers, reasonable length)
+                for (const part of parts) {
+                    if (part.length > 2 && part.length < 20 && !/^\d/.test(part) && !this.getCountryCode(part)) {
+                        // Remove common non-city words
+                        const cleanPart = part.replace(/\b(district|zone|area|street|road|avenue|building|floor|no\.?|#)\b/gi, '').trim();
+                        if (cleanPart.length > 2) {
+                            return cleanPart;
+                        }
+                    }
+                }
+            }
         }
         
         return '';
     }
 
-    // Get country code from country name
+    // Get country code from country name or code - 支持国家名称和国家代码输入
     getCountryCode(countryName) {
         if (!countryName) return '';
         
-        const lowerCountryName = countryName.toLowerCase().trim();
+        const inputName = countryName.trim();
+        const lowerInputName = inputName.toLowerCase();
         
-        // Direct lookup
-        if (COUNTRY_CODES[lowerCountryName]) {
-            return COUNTRY_CODES[lowerCountryName];
+        // 1. 直接检查是否是有效的国家代码（2位大写）
+        if (inputName.length === 2) {
+            const upperCode = inputName.toUpperCase();
+            // 检查这个代码是否存在于我们的国家代码映射中
+            for (const [country, code] of Object.entries(COUNTRY_CODES)) {
+                if (code === upperCode) {
+                    return upperCode;
+                }
+            }
         }
         
-        // Partial match
+        // 2. 直接查找国家名称
+        if (COUNTRY_CODES[lowerInputName]) {
+            return COUNTRY_CODES[lowerInputName];
+        }
+        
+        // 3. 检查国家变体名称
+        if (COUNTRY_VARIATIONS[lowerInputName]) {
+            const standardName = COUNTRY_VARIATIONS[lowerInputName];
+            if (COUNTRY_CODES[standardName]) {
+                return COUNTRY_CODES[standardName];
+            }
+        }
+        
+        // 4. 部分匹配国家名称
         for (const [country, code] of Object.entries(COUNTRY_CODES)) {
-            if (country.toLowerCase().includes(lowerCountryName) || 
-                lowerCountryName.includes(country.toLowerCase())) {
+            if (country.toLowerCase().includes(lowerInputName) || 
+                lowerInputName.includes(country.toLowerCase())) {
                 return code;
             }
         }
         
         return '';
+    }
+
+    // Get country name from country code - 从国家代码获取国家名称
+    getCountryNameFromCode(countryCode) {
+        if (!countryCode) return '';
+        
+        // 常用国家的中英文对照
+        const countryNames = {
+            'CN': 'China',
+            'US': 'United States', 
+            'GB': 'United Kingdom',
+            'FR': 'France',
+            'DE': 'Germany',
+            'IT': 'Italy',
+            'JP': 'Japan',
+            'KR': 'South Korea',
+            'CA': 'Canada',
+            'AU': 'Australia',
+            'IN': 'India',
+            'BR': 'Brazil',
+            'MX': 'Mexico',
+            'ES': 'Spain',
+            'NL': 'Netherlands',
+            'CH': 'Switzerland',
+            'SE': 'Sweden',
+            'DK': 'Denmark',
+            'NO': 'Norway',
+            'FI': 'Finland',
+            'SG': 'Singapore',
+            'TH': 'Thailand',
+            'VN': 'Vietnam',
+            'MY': 'Malaysia',
+            'PH': 'Philippines',
+            'ID': 'Indonesia',
+            'TW': 'Taiwan',
+            'TR': 'Turkey',
+            'AE': 'United Arab Emirates',
+            'SA': 'Saudi Arabia',
+            'EG': 'Egypt',
+            'ZA': 'South Africa',
+            'AR': 'Argentina',
+            'CL': 'Chile',
+            'CO': 'Colombia',
+            'PE': 'Peru'
+        };
+        
+        return countryNames[countryCode.toUpperCase()] || countryCode;
+    }
+
+    // 验证MID生成所需信息是否完整 - 按照FedEx四条规则验证
+    validateMidRequirements(data) {
+        const missing = [];
+        const warnings = [];
+        
+        // FedEx规则第1条：国家代码（必填）
+        if (!data.country || !data.country.name || data.country.name.trim() === '') {
+            missing.push('国家名称或代码');
+        }
+        
+        // FedEx规则第2条：制造商名称（必填）
+        if (!data.company || data.company.trim() === '') {
+            missing.push('制造商名称');
+        } else {
+            // 检查制造商名称是否足够长以生成有效代码
+            const cleanCompany = data.company.trim().toUpperCase();
+            const words = cleanCompany.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(word => word.length > 0);
+            if (words.length === 0 || (words.length === 1 && words[0].length < 3)) {
+                warnings.push('制造商名称可能太短，建议提供更完整的公司名称');
+            }
+        }
+        
+        // FedEx规则第3条：地址编号（可选，但如果提供需要是数字）
+        if (data.address && data.address.trim() !== '') {
+            const addressNum = data.address.trim();
+            if (!/^\d+$/.test(addressNum)) {
+                warnings.push('地址编号应为纯数字（如：73、1640等）');
+            }
+        }
+        
+        // FedEx规则第4条：城市名称（必填）
+        if (!data.city || data.city.trim() === '') {
+            missing.push('城市名称');
+        } else {
+            // 检查城市名称是否足够长以生成有效代码
+            const cleanCity = data.city.trim().replace(/[^\w]/g, '');
+            if (cleanCity.length < 3) {
+                warnings.push('城市名称可能太短，建议提供完整的城市名称');
+            }
+        }
+        
+        // 生成错误信息
+        if (missing.length > 0) {
+            let message = '<strong>请补充完整信息以符合FedEx四条规则：</strong><br><br>';
+            message += '<span style="color: #dc3545;">缺少以下必填信息：</span><br>';
+            missing.forEach((item, index) => {
+                message += `${index + 1}. <strong>${item}</strong><br>`;
+            });
+            
+            message += '<br><span style="color: #6c757d;">FedEx标准要求：</span><br>';
+            message += '✓ <strong>第1条</strong>：国家名称或代码（如：中国、China、CN）<br>';
+            message += '✓ <strong>第2条</strong>：制造商完整名称（如：Shenzhen Calux Purification Technology Co., Ltd.）<br>';
+            message += '• <strong>第3条</strong>：地址编号（可选，如：73、1640）<br>';
+            message += '✓ <strong>第4条</strong>：城市名称（如：深圳、Shenzhen）';
+            
+            return {
+                isValid: false,
+                message: message
+            };
+        }
+        
+        // 如果有警告，但信息完整
+        if (warnings.length > 0) {
+            let message = '<strong>信息已接收，但建议优化：</strong><br><br>';
+            warnings.forEach((warning, index) => {
+                message += `${index + 1}. <span style="color: #856404;">${warning}</span><br>`;
+            });
+            message += '<br><span style="color: #6c757d;">点击生成按钮继续创建MID代码</span>';
+            
+            return {
+                isValid: true,
+                hasWarnings: true,
+                message: message
+            };
+        }
+        
+        return {
+            isValid: true,
+            hasWarnings: false
+        };
     }
 
     // Extract company name from lines
@@ -256,62 +695,64 @@ class MIDGenerator {
     }
 
     // Extract address numbers with improved logic
-    extractAddressNumbers(fullText) {
-        if (!fullText) return '';
+    extractAddressNumbers(addressText) {
+        if (!addressText) return '';
         
-        const lines = fullText.split('\n').map(line => line.trim()).filter(line => line);
+        // If we have a specific address line, use it directly
+        let targetText = addressText;
         
-        // Street keywords to identify address lines
-        const streetKeywords = [
-            'STREET', 'ST', 'AVENUE', 'AVE', 'ROAD', 'RD', 'BOULEVARD', 'BLVD',
-            'LANE', 'LN', 'DRIVE', 'DR', 'COURT', 'CT', 'PLACE', 'PL',
-            'CIRCLE', 'CIR', 'WAY', 'PARK', 'PLAZA', 'SQUARE', 'SQ', 'NO'
-        ];
+        // If it's multi-line text, extract from all lines
+        const lines = addressText.split('\n').map(line => line.trim()).filter(line => line);
         
         let allNumbers = [];
         
-        // Look for address lines (usually middle lines, not first or last)
-        for (let i = 1; i < lines.length - 1; i++) {
-            const line = lines[i].toUpperCase();
-            
-            // Check if line contains street keywords or looks like an address
-            const hasStreetKeyword = streetKeywords.some(keyword => 
-                line.includes(keyword)
-            );
-            
-            // Also check if line has numbers (typical of addresses)
-            const hasNumbers = /\d+/.test(line);
-            
-            if (hasStreetKeyword || hasNumbers) {
-                // Extract numbers from this line
-                const numbers = lines[i].match(/\d+/g);
-                if (numbers) {
-                    allNumbers.push(...numbers.map(num => parseInt(num, 10)));
-                }
-            }
-        }
-        
-        // If no address-like lines found, check all lines except first and last
-        if (allNumbers.length === 0) {
-            for (let i = 1; i < lines.length - 1; i++) {
-                const numbers = lines[i].match(/\d+/g);
-                if (numbers) {
-                    allNumbers.push(...numbers.map(num => parseInt(num, 10)));
-                }
-            }
+        // Extract all numbers from the address text
+        const numberMatches = targetText.match(/\d+/g);
+        if (numberMatches) {
+            allNumbers = numberMatches.map(num => parseInt(num, 10));
         }
         
         if (allNumbers.length === 0) return '';
         
-        // Filter out obvious postal codes (5+ digits)
-        const validNumbers = allNumbers.filter(num => num < 100000);
+        // Filter logic for address numbers
+        let validNumbers = allNumbers.filter(num => {
+            // Remove obvious postal codes (typically 5+ digits)
+            if (num >= 10000) return false;
+            
+            // Remove years (4 digits starting with 19 or 20)
+            if (num >= 1900 && num <= 2100) return false;
+            
+            // Keep reasonable building/street numbers
+            return num > 0 && num < 10000;
+        });
+        
+        // If no valid numbers found, try a more lenient approach
+        if (validNumbers.length === 0) {
+            validNumbers = allNumbers.filter(num => num > 0 && num < 100000);
+        }
+        
         if (validNumbers.length === 0) return '';
         
-        // Find the highest number
-        const maxNumber = Math.max(...validNumbers);
+        // For address numbers, prefer the first meaningful number
+        // as it's usually the building/street number
+        let addressNumber;
+        
+        // Look for patterns like "No.7-3" or "Building 123"
+        const noPattern = targetText.match(/(?:no\.?\s*|number\s*|#\s*)(\d+)(?:[-\s](\d+))?/i);
+        if (noPattern) {
+            // If we have "No.7-3", combine them as "73" 
+            if (noPattern[2]) {
+                addressNumber = parseInt(noPattern[1]) * 10 + parseInt(noPattern[2]);
+            } else {
+                addressNumber = parseInt(noPattern[1]);
+            }
+        } else {
+            // Use the first number found
+            addressNumber = validNumbers[0];
+        }
         
         // Limit to 4 digits max
-        return Math.min(maxNumber, 9999).toString();
+        return Math.min(addressNumber, 9999).toString();
     }
 
     // Check if line contains country information
@@ -383,53 +824,78 @@ class MIDGenerator {
             address: '', // 只存编号
             city: document.getElementById('cityInput').value.trim()
         };
-        // Validate input
-        if (!data.country.name || !data.company || !data.city) {
-            this.showAlert('请填写所有必填字段（国家、公司、城市）。', 'warning');
+        // 验证手动输入是否符合FedEx四条规则
+        const validationResult = this.validateMidRequirements(data);
+        if (!validationResult.isValid) {
+            this.showAlert(validationResult.message, 'warning');
             return;
         }
-        // Extract country code
+        
+        // Extract country code and validate
         data.country.code = this.getCountryCode(data.country.name);
         if (!data.country.code) {
-            this.showAlert('无法识别国家名称，请检查拼写。', 'warning');
+            this.showAlert('无法识别国家名称或代码，请检查拼写。支持格式：中国、China、CN', 'warning');
             return;
+        }
+        
+        // 如果输入的是国家代码，更新为完整国家名称用于显示
+        if (data.country.name.length === 2) {
+            const fullCountryName = this.getCountryNameFromCode(data.country.code);
+            if (fullCountryName) {
+                data.country.name = fullCountryName;
+            }
         }
         // 只从addressInput字段提取最大数字
         const addressInput = document.getElementById('addressInput').value.trim();
-        data.address = this.extractAddressNumbersFromAddressField(addressInput);
-        const midCode = this.generateMidCode(data);
-        this.displayMidCode(midCode, data);
+        data.address = this.extractAddressNumbers(addressInput);
+        
+        try {
+            const midCode = this.generateMidCode(data);
+            this.displayMidCode(midCode, data);
+        } catch (error) {
+            this.showAlert('生成MID代码失败：' + error.message, 'danger');
+        }
     }
 
-    // Generate MID code from parsed data
+    // Generate MID code from parsed data - 严格按照FedEx四点标准
     generateMidCode(data) {
         let midCode = '';
         
-        // Country code (2 chars)
-        midCode += data.country.code || 'XX';
+        // FedEx标准第1点：国家代码 (2位字母)
+        const countryCode = data.country.code || 'XX';
+        midCode += countryCode;
         
-        // Company code (3-6 chars)
-        midCode += this.generateCompanyCode(data.company);
+        // FedEx标准第2点：制造商名称代码 (3-6位字母) 
+        const companyCode = this.generateCompanyCode(data.company);
+        if (companyCode.length < 3) {
+            throw new Error('制造商名称太短，无法生成有效的MID代码');
+        }
+        midCode += companyCode;
         
-        // Address number (up to 4 digits)
-        if (data.address) {
-            midCode += data.address.substring(0, 4);
+        // FedEx标准第3点：地址编号 (数字，可选，最多4位)
+        if (data.address && data.address.length > 0) {
+            const addressNum = data.address.substring(0, 4);
+            midCode += addressNum;
         }
         
-        // City code (3 chars)
-        midCode += this.generateCityCode(data.city);
+        // FedX标准第4点：城市代码 (3位字母)
+        const cityCode = this.generateCityCode(data.city);
+        if (cityCode.length < 3) {
+            throw new Error('城市名称太短，无法生成有效的城市代码');
+        }
+        midCode += cityCode;
         
         return midCode.toUpperCase();
     }
 
-    // Generate company code from company name
+    // Generate company code from company name - 严格按照FedEx四点规则
     generateCompanyCode(company) {
         if (!company) return '';
         
-        // 根据FedEx官方规则处理公司名称
+        // 规则1: 移除常用词和企业形式后缀
         let cleanCompany = company.trim().toUpperCase();
         
-        // 移除常见的公司后缀
+        // 移除常见的企业形式
         const companySuffixes = [
             'INC', 'INCORPORATED', 'LLC', 'LTD', 'LIMITED', 'CORP', 'CORPORATION',
             'CO', 'COMPANY', 'ENTERPRISE', 'ENTERPRISES', 'GROUP', 'INTERNATIONAL',
@@ -441,37 +907,35 @@ class MIDGenerator {
             cleanCompany = cleanCompany.replace(regex, '').trim();
         });
         
-        // 移除标点符号和特殊字符，但保留空格
+        // 移除标点符号，但保留空格用于分词
         cleanCompany = cleanCompany.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
         
-        // 根据FedEx官方规则：忽略不常用词
+        // 移除不常用词
         const commonWords = ['A', 'AN', 'AND', 'OF', 'THE', 'FOR', 'WITH', 'IN', 'ON', 'AT', 'TO', 'BY'];
         const words = cleanCompany.split(' ').filter(word => 
             word.length > 0 && !commonWords.includes(word.toUpperCase())
         );
         
-        if (words.length === 0) {
-            // 如果过滤后没有单词，使用原始公司名称
-            return company.replace(/[^\w]/g, '').substring(0, 6).toUpperCase();
-        }
-        
         let companyCode = '';
         
-        if (words.length === 1) {
-            // 对于单字母制造商名称，取前三个字母
-            companyCode = words[0].substring(0, 3);
+        if (words.length === 0) {
+            // 如果过滤后没有单词，使用原始名称
+            companyCode = company.replace(/[^\w]/g, '').substring(0, 6);
+        } else if (words.length === 1) {
+            // 规则2: 单个单词制造商名称，取前6个字母
+            companyCode = words[0].substring(0, 6);
         } else {
-            // 对于有两个或以上单词的制造商名称，取前两个单词的前三个字母
+            // 规则3: 多个单词制造商名称，取前两个单词的前三个字母
             const firstWord = words[0].substring(0, 3);
             const secondWord = words[1] ? words[1].substring(0, 3) : '';
             companyCode = firstWord + secondWord;
         }
         
-        // 确保至少3个字符，最多6个字符
+        // 规则4: 确保至少3个字符，最多6个字符
         if (companyCode.length < 3) {
-            // 如果不足3位，用原始公司名称补充
-            const remaining = company.replace(/[^\w]/g, '').toUpperCase();
-            companyCode = remaining.substring(0, 6);
+            // 不足3位时，用完整的第一个有效单词补充
+            const validWord = words.length > 0 ? words[0] : company.replace(/[^\w]/g, '');
+            companyCode = validWord.substring(0, Math.max(3, Math.min(6, validWord.length)));
         }
         
         return companyCode.substring(0, 6).toUpperCase();
@@ -1160,25 +1624,65 @@ class MIDGenerator {
         URL.revokeObjectURL(url);
     }
 
-    // Utility function to show alerts
+    // Utility function to show alerts - 显示在表单正前面
     showAlert(message, type = 'info') {
-        // Create alert element
+        // 移除之前的错误信息
+        const existingAlert = document.getElementById('dynamicAlert');
+        if (existingAlert) {
+            existingAlert.remove();
+        }
+
+        // 创建新的错误信息元素
         const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+        alertDiv.id = 'dynamicAlert';
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show mb-4`;
         alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <div class="d-flex align-items-start">
+                <i class="fas fa-${type === 'danger' ? 'exclamation-triangle' : type === 'warning' ? 'exclamation-circle' : type === 'success' ? 'check-circle' : 'info-circle'} me-2 mt-1"></i>
+                <div class="flex-grow-1">${message}</div>
+                <button type="button" class="btn-close ms-2" onclick="this.parentElement.parentElement.remove()"></button>
+            </div>
         `;
         
-        document.body.appendChild(alertDiv);
+        // 插入到表单前面 - 使用更精确的选择器
+        let targetContainer = null;
         
-        // Auto-remove after 5 seconds
+        // 尝试找到输入信息卡片的body
+        const inputInfoCard = document.querySelector('#inputInfo .card-body');
+        if (inputInfoCard) {
+            targetContainer = inputInfoCard;
+        } else {
+            // 备选方案：找到任何包含表单的card-body
+            const cardBodies = document.querySelectorAll('.card-body');
+            for (let i = 0; i < cardBodies.length; i++) {
+                const cardBody = cardBodies[i];
+                if (cardBody.querySelector('#fullInfo') || cardBody.querySelector('#countryInput')) {
+                    targetContainer = cardBody;
+                    break;
+                }
+            }
+        }
+        
+        if (targetContainer) {
+            targetContainer.insertBefore(alertDiv, targetContainer.firstChild);
+        } else {
+            // 最后的后备方案：插入到主容器开头
+            const mainContainer = document.querySelector('.container');
+            if (mainContainer) {
+                mainContainer.insertBefore(alertDiv, mainContainer.firstChild);
+            } else {
+                // 如果都找不到，就插入到body开头
+                document.body.insertBefore(alertDiv, document.body.firstChild);
+            }
+        }
+        
+        // 自动移除（成功信息3秒，其他5秒）
+        const timeout = type === 'success' ? 3000 : 5000;
         setTimeout(() => {
             if (alertDiv.parentNode) {
                 alertDiv.remove();
             }
-        }, 5000);
+        }, timeout);
     }
 }
 
