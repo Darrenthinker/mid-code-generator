@@ -7,7 +7,7 @@
     "start": "npx http-server . -p 3005 -o",
     "dev": "npx http-server . -p 3005 -o -c-1",
     "build": "echo 'No build process required for static site'",
-    "test": "echo 'No tests specified'"
+    "test": "node test/mid-generator.test.js"
   },
   "keywords": [
     "MID",
@@ -39,4 +39,4 @@
     "last 2 versions",
     "not dead"
   ]
-} 
+}
